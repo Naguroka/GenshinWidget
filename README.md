@@ -74,7 +74,8 @@ pip install PyQt5 genshin qasync asyncio logging configparser
 1. **Install Python**: Ensure you have Python installed on your system. (This app is made with Python 3.12.2)
 2. **Install Dependencies**: Use the provided `pip` command to install necessary libraries.
 3. **Configure Settings**: Modify the `settings.ini` file with your specific preferences and authentication details.
-4. **Run the Application**: Use the `run_invisible.bat` file to start the application without showing the console.
+4. **Install Custom Font**: Install the custom Genshin Impact font file `xh-cn.ttf`
+5. **Run the Application**: Use the `run_invisible.bat` file to start the application without showing the console.
 
 ### run_invisible.bat
 
