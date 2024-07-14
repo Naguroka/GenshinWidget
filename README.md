@@ -6,6 +6,8 @@ This repository contains a PyQt5 application that uses the `genshin.py` library 
 
 The Genshin App is a fully customizable desktop application that displays various pieces of information from Genshin Impact. It allows for extensive customization through the `settings.ini` file, which includes options for the display settings, authentication details, and window properties.
 
+![Preview Image]([[https://github.com/Naguroka/GenshinWidget/blob/main/Preview.png](https://raw.githubusercontent.com/Naguroka/GenshinWidget/main/Preview.png)])
+
 ## Functionality
 
 - **Customizable UI**: The application allows you to customize the font size, font color, background color, or image, and whether the window is draggable or always on top.
