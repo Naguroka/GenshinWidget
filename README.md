@@ -74,7 +74,7 @@ pip install PyQt5 genshin qasync asyncio logging configparser
 1. **Install Python**: Ensure you have Python installed on your system. (This app is made with Python 3.12.2)
 2. **Install Dependencies**: Use the provided `pip` command to install necessary libraries.
 3. **Grab Auth Cookies**: Go to Hoyolab, login, grab your cookie data then fill out the `settings.ini` file
-4. **Grab Game UID**: Go to Genshin Impact or your Hoyolab Battle Chronicle to get your in game UID to fill out the `ltuid_v2` feild in the `settings.ini` -> `[Auth]` section.
+4. **Grab Game UID**: Go to Genshin Impact or your Hoyolab Battle Chronicle to get your in game UID to fill out the `ltuid_v2` field in the `settings.ini` -> `[Auth]` section.
 5. **Configure Settings**: Modify the `settings.ini` file with your specific preferences and authentication details.
 6. **Install Custom Font**: Install the custom Genshin Impact font file `xh-cn.ttf`
 7. **Run the Application**: Use the `run_invisible.bat` file to start the application without showing the console.
