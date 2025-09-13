@@ -1,15 +1,16 @@
 # Genshin Widget
 
-This is a small PyQt5 widget that displays Genshin Impact account info using the `genshin.py` library. The app is customizable via `settings.ini` and now supports both Windows and Linux.
+This is a small PyQt5 widget that displays Genshin Impact account info using the `genshin` Python library. The app is customizable via `settings.ini` and supports both Windows and Linux.
 
 ![Preview Image](https://raw.githubusercontent.com/Naguroka/GenshinWidget/main/Preview.png)
 
 ## Features
 
-- **Customizable UI**: Font size/color, background color/image, margins, rounded corners, transparency, draggable, always-on-top.
-- **Realtime info**: Resin, Daily Reward status, and Realm Currency (via Hoyolab).
-- **Periodic refresh**: Updates every minute.
-- **Cross-platform**: Works on Windows and Linux.
+- Customizable UI: font size/color, background color/image, margins, rounded corners, transparency, draggable, always-on-top.
+- Realtime info: Resin, Daily Reward status, and Realm Currency (via Hoyolab).
+- Auto UID detection: no need to type your in-game UID — it is detected from your cookies.
+- Periodic refresh: updates every minute.
+- Cross-platform: works on Windows and Linux.
 
 ## Requirements
 
@@ -24,11 +25,9 @@ Install dependencies with:
 pip install -r requirements.txt
 ```
 
-Note: `asyncio`, `logging`, and `configparser` are part of Python’s standard library; no need to install them via pip.
-
 ## Configuration
 
-Copy `settings.ini` next to `main.py` and fill in your details. The app will resolve all asset and config paths relative to the script, so launching from a different working directory works on both Windows and Linux.
+Copy `settings.ini` next to `main.py` and fill in your details. The app resolves asset and config paths relative to the script, so launching from a different working directory works on both Windows and Linux.
 
 Example:
 
@@ -50,10 +49,15 @@ allow_resizing = 1
 draggable = 1
 
 [Auth]
+# IMPORTANT: `ltuid_v2` is your Hoyolab account ID (usually 8 digits),
+# NOT your in-game UID. Do not paste your game UID here.
 ltuid_v2 = your_ltuid_v2
 ltoken_v2 = your_ltoken_v2
 cookie_token_v2 = your_cookie_token_v2
 account_mid_v2 = your_account_mid_v2
+; Optional but recommended if present in your browser cookies:
+; account_id_v2 = your_account_id_v2  ; often the same number as ltuid_v2
+; ltmid_v2 = your_ltmid_v2            ; often same as account_mid_v2
 
 [Window]
 last_x = 100
@@ -107,9 +111,15 @@ Notes for Linux:
 ## Getting Cookies
 
 1. Log into Hoyolab in your browser.
-2. Open Developer Tools → Application/Storage → Cookies for the Hoyolab domain.
-3. Copy values for `ltuid_v2`, `ltoken_v2`, `cookie_token_v2`, and `account_mid_v2` into `settings.ini`.
-4. Use your in-game UID for `ltuid_v2` if applicable.
+2. Open Developer Tools > Application/Storage > Cookies for `.hoyolab.com`.
+3. Copy these values into `[Auth]` in `settings.ini`:
+   - Required: `ltuid_v2`, `ltoken_v2`, `cookie_token_v2`, `account_mid_v2`.
+   - Optional (if present): `account_id_v2`, `ltmid_v2`.
+4. Do NOT paste your in-game UID into `ltuid_v2`. It must be your Hoyolab account ID.
+
+Notes:
+- The app auto-detects your game UID and server from your cookies; you don't need to specify a game UID.
+- The app avoids logging cookie values; keep your `settings.ini` private.
 
 ## Fonts
 
@@ -126,3 +136,4 @@ MIT — see `LICENSE`.
 ## Contributing
 
 Issues and PRs are welcome.
+

@@ -10,7 +10,8 @@ import genshin
 from qasync import QEventLoop, asyncSlot
 
 # Setup logging
-logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
+# Use INFO by default to avoid overly verbose asyncio/aiohttp logs and to reduce risk of leaking sensitive data.
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 # Resolve paths relative to this file to be cross-platform friendly
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -75,7 +76,8 @@ class GenshinApp(QWidget):
         window_config = self.config['Window']
 
         logging.debug(f"display_config: {list(display_config.items())}")
-        logging.debug(f"auth_config: {list(auth_config.items())}")
+        # Do NOT log raw auth values; they are sensitive.
+        logging.debug(f"auth_config keys: {[k for k in auth_config.keys()]}")
         logging.debug(f"window_config: {list(window_config.items())}")
 
         # Check for auth details
@@ -135,7 +137,12 @@ class GenshinApp(QWidget):
         # Setup Genshin API client
         self.client = genshin.Client()
         self.set_cookies(auth_config)
-        logging.debug(f"Using cookies: {{'ltuid_v2': '{auth_config['ltuid_v2']}', 'ltoken_v2': '{auth_config['ltoken_v2']}', 'cookie_token_v2': '{auth_config['cookie_token_v2']}', 'account_mid_v2': '{auth_config['account_mid_v2']}'}}")
+        # Silence overly chatty third‑party debug logs by default.
+        try:
+            import logging as _logging
+            _logging.getLogger("genshin").setLevel(_logging.WARNING)
+        except Exception:
+            pass
 
         # Set font size and color for the entire window
         self.font_size = display_config.getint('font_size')
@@ -202,9 +209,21 @@ class GenshinApp(QWidget):
         return value == '1'
 
     def set_cookies(self, auth_config):
-        # Use ltuid_v2, ltoken_v2, cookie_token_v2, and account_mid_v2
-        self.client.set_cookies(ltuid_v2=auth_config['ltuid_v2'], ltoken_v2=auth_config['ltoken_v2'], cookie_token_v2=auth_config['cookie_token_v2'], account_mid_v2=auth_config['account_mid_v2'])
-        logging.debug(f"Set cookies: ltuid_v2={auth_config['ltuid_v2']}, ltoken_v2={auth_config['ltoken_v2']}, cookie_token_v2={auth_config['cookie_token_v2']}, account_mid_v2={auth_config['account_mid_v2']}")
+        # Use required cookies; include optional ones if present.
+        cookie_kwargs = {
+            'ltuid_v2': auth_config['ltuid_v2'],
+            'ltoken_v2': auth_config['ltoken_v2'],
+            'cookie_token_v2': auth_config['cookie_token_v2'],
+            'account_mid_v2': auth_config['account_mid_v2'],
+        }
+        # Optional extras that can help some endpoints
+        for optional_key in ('account_id_v2', 'ltmid_v2'):
+            if auth_config.get(optional_key):
+                cookie_kwargs[optional_key] = auth_config[optional_key]
+
+        self.client.set_cookies(**cookie_kwargs)
+        # Do not log cookie values; confirm only that required keys are present.
+        logging.info("Authentication cookies set (ltuid_v2, ltoken_v2, cookie_token_v2, account_mid_v2)")
 
     @asyncSlot()
     async def add_info_labels(self, display_config):
@@ -213,14 +232,15 @@ class GenshinApp(QWidget):
     @asyncSlot()
     async def update_info(self):
         try:
-            uid = int(self.config['Auth']['ltuid_v2'])
-            logging.debug(f"Fetching notes for UID: {uid}")
+            # Let the genshin client auto-detect the correct UID from cookies.
+            logging.debug("Fetching notes (auto-detected UID)")
 
             show_notes = self.config['Display'].get('show_notes', '0')  # Default to '0' if 'show_notes' is not found
 
             if self.bool_from_str(show_notes):
                 try:
-                    notes = await self.client.get_notes(uid)
+                    # Passing no UID lets the client resolve the correct account automatically.
+                    notes = await self.client.get_notes()
                     logging.debug(f"Notes: {notes}")
                     resin_info = f"Resin: {notes.current_resin}/{notes.max_resin}"
                     checkin_info = f"Daily Reward Claimed: {notes.claimed_commission_reward}"
