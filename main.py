@@ -12,6 +12,18 @@ from qasync import QEventLoop, asyncSlot
 # Setup logging
 logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
 
+# Resolve paths relative to this file to be cross-platform friendly
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
+def resource_path(*parts: str) -> str:
+    """Return an absolute path for a resource located next to the script.
+
+    If a provided path is already absolute, it's returned unchanged.
+    """
+    if parts and os.path.isabs(parts[0]):
+        return os.path.join(*parts)
+    return os.path.join(BASE_DIR, *parts)
+
 class ClickableLabel(QLabel):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -55,7 +67,8 @@ class GenshinApp(QWidget):
 
     def initUI(self):
         self.config = configparser.ConfigParser()
-        self.config.read('settings.ini')
+        self.settings_path = resource_path('settings.ini')
+        self.config.read(self.settings_path)
 
         display_config = self.config['Display']
         auth_config = self.config['Auth']
@@ -110,7 +123,7 @@ class GenshinApp(QWidget):
         self.content_layout.setContentsMargins(self.margins, self.margins, self.margins, self.margins)
 
         # Load and apply custom font
-        font_id = QFontDatabase.addApplicationFont("zh-cn.ttf")
+        font_id = QFontDatabase.addApplicationFont(resource_path("zh-cn.ttf"))
         if font_id == -1:
             logging.error("Failed to load custom font.")
             self.custom_font = QFont()
@@ -132,7 +145,9 @@ class GenshinApp(QWidget):
         # Set background color or image
         self.show_background = bool_from_str(display_config['show_background'])
         self.background_color = display_config['background_color']
-        self.background_image = display_config.get('background_image', '')
+        bg_from_cfg = display_config.get('background_image', '')
+        # If the configured path is absolute, use it; otherwise resolve relative to BASE_DIR
+        self.background_image = bg_from_cfg if os.path.isabs(bg_from_cfg) else resource_path(bg_from_cfg) if bg_from_cfg else ''
 
         # Apply styles
         self.apply_styles()
@@ -235,7 +250,7 @@ class GenshinApp(QWidget):
         # Create resin info row
         resin_row = QHBoxLayout()
         resin_icon = QLabel()
-        resin_pixmap = QPixmap("resin.png").scaledToHeight(self.font_size)
+        resin_pixmap = QPixmap(resource_path("resin.png")).scaledToHeight(self.font_size)
         resin_icon.setPixmap(resin_pixmap)
         resin_label = QLabel(resin_info)
         resin_label.setFont(self.custom_font)
@@ -246,7 +261,7 @@ class GenshinApp(QWidget):
         # Create checkin info row
         checkin_row = QHBoxLayout()
         checkin_icon = ClickableLabel()
-        checkin_pixmap = QPixmap("checkin.png").scaledToHeight(self.font_size)
+        checkin_pixmap = QPixmap(resource_path("checkin.png")).scaledToHeight(self.font_size)
         checkin_icon.setPixmap(checkin_pixmap)
         checkin_icon.setUrl("https://act.hoyolab.com/ys/event/signin-sea-v3/index.html?act_id=e202102251931481")
         checkin_label = QLabel(checkin_info)
@@ -258,7 +273,7 @@ class GenshinApp(QWidget):
         # Create realm currency info row
         realm_currency_row = QHBoxLayout()
         realm_currency_icon = QLabel()
-        realm_currency_pixmap = QPixmap("realmCurr.png").scaledToHeight(self.font_size)
+        realm_currency_pixmap = QPixmap(resource_path("realmCurr.png")).scaledToHeight(self.font_size)
         realm_currency_icon.setPixmap(realm_currency_pixmap)
         realm_currency_label = QLabel(realm_currency_info)
         realm_currency_label.setFont(self.custom_font)
@@ -303,14 +318,14 @@ class GenshinApp(QWidget):
         # Save the current window position to settings.ini
         self.config.set('Window', 'last_x', str(self.x()))
         self.config.set('Window', 'last_y', str(self.y()))
-        with open('settings.ini', 'w') as configfile:
+        with open(self.settings_path, 'w') as configfile:
             self.config.write(configfile)
 
     def closeEvent(self, event):
         # Save the current window position to settings.ini
         self.config.set('Window', 'last_x', str(self.x()))
         self.config.set('Window', 'last_y', str(self.y()))
-        with open('settings.ini', 'w') as configfile:
+        with open(self.settings_path, 'w') as configfile:
             self.config.write(configfile)
         event.accept()
 
