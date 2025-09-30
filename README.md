@@ -10,6 +10,8 @@ This is a small PyQt5 widget that displays Genshin Impact account info using the
 - Realtime info: Resin, Daily Reward status, and Realm Currency (via Hoyolab).
 - Auto UID detection: no need to type your in-game UID — it is detected from your cookies.
 - Periodic refresh: updates every minute.
+- Named window: shows up as "Genshin Widget" in Alt+Tab and task switchers.
+- Clean shutdown: closing the widget stops the background Python process.
 - Cross-platform: works on Windows and Linux.
 
 ## Requirements
@@ -77,6 +79,8 @@ last_y = 100
 start "" /b pythonw.exe main.py
 exit
 ```
+
+Closing the window now terminates the Python process immediately, so you will not see stray python tasks after exiting.
 
 ### Linux
 

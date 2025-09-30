@@ -62,8 +62,10 @@ class BackgroundFrame(QFrame):
 class GenshinApp(QWidget):
     update_ui_signal = pyqtSignal(str, str, str)  # Signal to update the UI
 
-    def __init__(self):
+    def __init__(self, loop=None):
         super().__init__()
+        self.loop = loop or asyncio.get_event_loop()
+        self.tasks = []
         self.initUI()
 
     def initUI(self):
@@ -104,6 +106,7 @@ class GenshinApp(QWidget):
             self.setWindowFlags(self.windowFlags() | Qt.WindowStaysOnTopHint)
         if not bool_from_str(display_config['show_in_taskbar']):
             self.setWindowFlags(self.windowFlags() | Qt.Tool)
+        self.setWindowTitle("Genshin Widget")
 
         # Restore last window position
         self.move(window_config.getint('last_x', 100), window_config.getint('last_y', 100))
@@ -176,7 +179,8 @@ class GenshinApp(QWidget):
         self.fit_window_to_text = fit_window_to_text
 
         # Add info labels asynchronously
-        asyncio.ensure_future(self.add_info_labels(display_config))
+        initial_load = self.loop.create_task(self.add_info_labels(display_config))
+        self.tasks.append(initial_load)
 
         # Setup timer for periodic updates
         self.timer = QTimer(self)
@@ -347,7 +351,18 @@ class GenshinApp(QWidget):
         self.config.set('Window', 'last_y', str(self.y()))
         with open(self.settings_path, 'w') as configfile:
             self.config.write(configfile)
+        if hasattr(self, 'timer'):
+            self.timer.stop()
+        for task in getattr(self, 'tasks', []):
+            if not task.done():
+                task.cancel()
+        app = QApplication.instance()
+        if app is not None:
+            app.quit()
+        if self.loop and self.loop.is_running():
+            self.loop.call_soon(self.loop.stop)
         event.accept()
+        super().closeEvent(event)
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
@@ -355,6 +370,6 @@ if __name__ == '__main__':
     asyncio.set_event_loop(loop)
 
     with loop:
-        window = GenshinApp()
+        window = GenshinApp(loop=loop)
         window.show()
         loop.run_forever()
