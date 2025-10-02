@@ -4,6 +4,7 @@ import asyncio
 import logging
 import signal
 import atexit
+import ctypes
 from PyQt5.QtWidgets import QApplication, QWidget, QVBoxLayout, QLabel, QMessageBox, QHBoxLayout, QFrame
 from PyQt5.QtCore import Qt, QPoint, pyqtSignal, QTimer, QUrl
 from PyQt5.QtGui import QFontDatabase, QFont, QPixmap, QPainter, QBrush, QDesktopServices, QMouseEvent
@@ -26,6 +27,18 @@ def resource_path(*parts: str) -> str:
     if parts and os.path.isabs(parts[0]):
         return os.path.join(*parts)
     return os.path.join(BASE_DIR, *parts)
+
+def apply_process_metadata(process_name="Genshin Widget"):
+    if sys.platform.startswith("win") and hasattr(ctypes, 'windll'):
+        try:
+            ctypes.windll.kernel32.SetConsoleTitleW(process_name)
+        except Exception as exc:
+            logging.debug("Unable to set console title: %s", exc)
+        try:
+            ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(process_name)
+        except Exception as exc:
+            logging.debug("Unable to set AppUserModelID: %s", exc)
+
 
 class ClickableLabel(QLabel):
     def __init__(self, *args, **kwargs):
@@ -411,6 +424,7 @@ class GenshinApp(QWidget):
         super().closeEvent(event)
 
 if __name__ == '__main__':
+    apply_process_metadata("Genshin Widget")
     app = QApplication(sys.argv)
     app.setApplicationName("Genshin Widget")
     app.setApplicationDisplayName("Genshin Widget")
