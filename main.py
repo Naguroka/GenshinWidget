@@ -2,6 +2,8 @@ import sys
 import os
 import asyncio
 import logging
+import signal
+import atexit
 from PyQt5.QtWidgets import QApplication, QWidget, QVBoxLayout, QLabel, QMessageBox, QHBoxLayout, QFrame
 from PyQt5.QtCore import Qt, QPoint, pyqtSignal, QTimer, QUrl
 from PyQt5.QtGui import QFontDatabase, QFont, QPixmap, QPainter, QBrush, QDesktopServices, QMouseEvent
@@ -66,6 +68,7 @@ class GenshinApp(QWidget):
         super().__init__()
         self.loop = loop or asyncio.get_event_loop()
         self.tasks = []
+        self._is_shutting_down = False
         self.initUI()
 
     def initUI(self):
@@ -218,6 +221,27 @@ class GenshinApp(QWidget):
         target_height = max(1, self.font_size)
         return pixmap.scaledToHeight(target_height)
 
+    def prepare_shutdown(self):
+        if getattr(self, '_is_shutting_down', False):
+            return
+        self._is_shutting_down = True
+
+        if hasattr(self, 'timer') and self.timer.isActive():
+            self.timer.stop()
+
+        for task in list(getattr(self, 'tasks', [])):
+            if not task.done():
+                task.cancel()
+        if hasattr(self, 'tasks'):
+            self.tasks.clear()
+
+        if self.loop and self.loop.is_running():
+            try:
+                self.loop.call_soon_threadsafe(self.loop.stop)
+            except RuntimeError:
+                # Loop may already be closed or stopping; ignore.
+                pass
+
     def bool_from_str(self, value):
         return value == '1'
 
@@ -368,16 +392,21 @@ class GenshinApp(QWidget):
         self.config.set('Window', 'last_y', str(self.y()))
         with open(self.settings_path, 'w') as configfile:
             self.config.write(configfile)
-        if hasattr(self, 'timer'):
-            self.timer.stop()
-        for task in getattr(self, 'tasks', []):
-            if not task.done():
-                task.cancel()
+
+        self.prepare_shutdown()
+
         app = QApplication.instance()
         if app is not None:
-            app.quit()
-        if self.loop and self.loop.is_running():
-            self.loop.call_soon_threadsafe(self.loop.stop)
+            closing_down_attr = getattr(app, 'closingDown', None)
+            if callable(closing_down_attr):
+                is_closing = closing_down_attr()
+            elif closing_down_attr is None:
+                is_closing = False
+            else:
+                is_closing = bool(closing_down_attr)
+            if not is_closing:
+                app.quit()
+
         event.accept()
         super().closeEvent(event)
 
@@ -395,7 +424,58 @@ if __name__ == '__main__':
 
     app.aboutToQuit.connect(_stop_loop)
 
+    window_ref = {}
+
+    def _handle_shutdown_signal(signum, frame):
+        logging.info("Received shutdown signal %s", signum)
+        window_instance = window_ref.get('window')
+        if window_instance is not None:
+            try:
+                loop.call_soon_threadsafe(window_instance.prepare_shutdown)
+            except RuntimeError:
+                window_instance.prepare_shutdown()
+        try:
+            if loop.is_running():
+                loop.call_soon_threadsafe(loop.stop)
+        except RuntimeError:
+            pass
+        app_instance = QApplication.instance()
+        if app_instance is not None:
+            try:
+                if loop.is_running():
+                    loop.call_soon_threadsafe(app_instance.quit)
+                else:
+                    app_instance.quit()
+            except RuntimeError:
+                app_instance.quit()
+
+    shutdown_signals = [signal.SIGINT, signal.SIGTERM]
+    for optional in ('SIGBREAK', 'SIGHUP'):
+        maybe_signal = getattr(signal, optional, None)
+        if maybe_signal is not None:
+            shutdown_signals.append(maybe_signal)
+
+    for sig in shutdown_signals:
+        try:
+            signal.signal(sig, _handle_shutdown_signal)
+        except (ValueError, OSError) as exc:
+            logging.debug("Unable to register handler for signal %s: %s", sig, exc)
+
+    def _atexit_cleanup():
+        window_instance = window_ref.get('window')
+        if window_instance is not None:
+            window_instance.prepare_shutdown()
+        try:
+            if loop.is_running():
+                loop.call_soon_threadsafe(loop.stop)
+        except RuntimeError:
+            pass
+
+    atexit.register(_atexit_cleanup)
+
     with loop:
         window = GenshinApp(loop=loop)
+        window_ref['window'] = window
+        app.aboutToQuit.connect(window.prepare_shutdown)
         window.show()
         loop.run_forever()
