@@ -178,8 +178,8 @@ class GenshinApp(QWidget):
         # Handle fit to text
         self.fit_window_to_text = fit_window_to_text
 
-        # Add info labels asynchronously
-        initial_load = self.loop.create_task(self.add_info_labels(display_config))
+        # Trigger an initial data refresh once the UI is ready.
+        initial_load = self.loop.create_task(self.refresh_notes())
         self.tasks.append(initial_load)
 
         # Setup timer for periodic updates
@@ -209,6 +209,15 @@ class GenshinApp(QWidget):
             self.background_frame.setBackgroundImage(None)
             self.background_frame.setStyleSheet(f"background-color: {self.background_color};")
 
+    def _load_scaled_pixmap(self, filename):
+        path = resource_path(filename)
+        pixmap = QPixmap(path)
+        if pixmap.isNull():
+            logging.warning(f"Failed to load pixmap from {path}")
+            return QPixmap()
+        target_height = max(1, self.font_size)
+        return pixmap.scaledToHeight(target_height)
+
     def bool_from_str(self, value):
         return value == '1'
 
@@ -229,12 +238,7 @@ class GenshinApp(QWidget):
         # Do not log cookie values; confirm only that required keys are present.
         logging.info("Authentication cookies set (ltuid_v2, ltoken_v2, cookie_token_v2, account_mid_v2)")
 
-    @asyncSlot()
-    async def add_info_labels(self, display_config):
-        await self.update_info()
-
-    @asyncSlot()
-    async def update_info(self):
+    async def refresh_notes(self):
         try:
             # Let the genshin client auto-detect the correct UID from cookies.
             logging.debug("Fetching notes (auto-detected UID)")
@@ -258,6 +262,10 @@ class GenshinApp(QWidget):
             logging.error(f"Error fetching data: {str(e)}")
             self.update_ui_signal.emit(f"Error fetching data: {str(e)}", "", "")
 
+    @asyncSlot()
+    async def update_info(self):
+        await self.refresh_notes()
+
     def update_ui(self, resin_info, checkin_info, realm_currency_info):
         logging.debug(f"Updating UI with resin info: {resin_info}, checkin info: {checkin_info}, realm currency info: {realm_currency_info}")
 
@@ -274,8 +282,11 @@ class GenshinApp(QWidget):
         # Create resin info row
         resin_row = QHBoxLayout()
         resin_icon = QLabel()
-        resin_pixmap = QPixmap(resource_path("resin.png")).scaledToHeight(self.font_size)
-        resin_icon.setPixmap(resin_pixmap)
+        resin_pixmap = self._load_scaled_pixmap("resin.png")
+        if not resin_pixmap.isNull():
+            resin_icon.setPixmap(resin_pixmap)
+        else:
+            resin_icon.setVisible(False)
         resin_label = QLabel(resin_info)
         resin_label.setFont(self.custom_font)
         resin_row.addWidget(resin_icon)
@@ -285,8 +296,11 @@ class GenshinApp(QWidget):
         # Create checkin info row
         checkin_row = QHBoxLayout()
         checkin_icon = ClickableLabel()
-        checkin_pixmap = QPixmap(resource_path("checkin.png")).scaledToHeight(self.font_size)
-        checkin_icon.setPixmap(checkin_pixmap)
+        checkin_pixmap = self._load_scaled_pixmap("checkin.png")
+        if not checkin_pixmap.isNull():
+            checkin_icon.setPixmap(checkin_pixmap)
+        else:
+            checkin_icon.setVisible(False)
         checkin_icon.setUrl("https://act.hoyolab.com/ys/event/signin-sea-v3/index.html?act_id=e202102251931481")
         checkin_label = QLabel(checkin_info)
         checkin_label.setFont(self.custom_font)
@@ -297,8 +311,11 @@ class GenshinApp(QWidget):
         # Create realm currency info row
         realm_currency_row = QHBoxLayout()
         realm_currency_icon = QLabel()
-        realm_currency_pixmap = QPixmap(resource_path("realmCurr.png")).scaledToHeight(self.font_size)
-        realm_currency_icon.setPixmap(realm_currency_pixmap)
+        realm_currency_pixmap = self._load_scaled_pixmap("realmCurr.png")
+        if not realm_currency_pixmap.isNull():
+            realm_currency_icon.setPixmap(realm_currency_pixmap)
+        else:
+            realm_currency_icon.setVisible(False)
         realm_currency_label = QLabel(realm_currency_info)
         realm_currency_label.setFont(self.custom_font)
         realm_currency_row.addWidget(realm_currency_icon)
@@ -360,14 +377,23 @@ class GenshinApp(QWidget):
         if app is not None:
             app.quit()
         if self.loop and self.loop.is_running():
-            self.loop.call_soon(self.loop.stop)
+            self.loop.call_soon_threadsafe(self.loop.stop)
         event.accept()
         super().closeEvent(event)
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
+    app.setApplicationName("Genshin Widget")
+    app.setApplicationDisplayName("Genshin Widget")
+
     loop = QEventLoop(app)
     asyncio.set_event_loop(loop)
+
+    def _stop_loop():
+        if loop.is_running():
+            loop.call_soon_threadsafe(loop.stop)
+
+    app.aboutToQuit.connect(_stop_loop)
 
     with loop:
         window = GenshinApp(loop=loop)
