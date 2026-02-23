@@ -13,8 +13,15 @@ import genshin
 from qasync import QEventLoop, asyncSlot
 
 # Setup logging
-# Use INFO by default to avoid overly verbose asyncio/aiohttp logs and to reduce risk of leaking sensitive data.
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+log_file = resource_path('debug.log')
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.FileHandler(log_file, encoding='utf-8'),
+        logging.StreamHandler()
+    ]
+)
 
 # Resolve paths relative to this file to be cross-platform friendly
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -125,7 +132,17 @@ class GenshinApp(QWidget):
         self.setWindowTitle("Genshin Widget")
 
         # Restore last window position
-        self.move(window_config.getint('last_x', 100), window_config.getint('last_y', 100))
+        last_x = window_config.getint('last_x', 100)
+        last_y = window_config.getint('last_y', 100)
+
+        # Screen bounds check
+        if QApplication.desktop():
+            screen_geo = QApplication.desktop().availableGeometry()
+            if not screen_geo.contains(last_x, last_y):
+                logging.warning(f"Restored position ({last_x}, {last_y}) is off-screen. Resetting to (100, 100).")
+                last_x, last_y = 100, 100
+        
+        self.move(last_x, last_y)
 
         # Setup layout
         self.main_layout = QVBoxLayout(self)
@@ -487,9 +504,17 @@ if __name__ == '__main__':
 
     atexit.register(_atexit_cleanup)
 
-    with loop:
-        window = GenshinApp(loop=loop)
-        window_ref['window'] = window
-        app.aboutToQuit.connect(window.prepare_shutdown)
-        window.show()
-        loop.run_forever()
+    try:
+        with loop:
+            window = GenshinApp(loop=loop)
+            window_ref['window'] = window
+            app.aboutToQuit.connect(window.prepare_shutdown)
+            window.show()
+            loop.run_forever()
+    except Exception as e:
+        logging.critical("Unhandled exception in main loop", exc_info=True)
+        # Use ctypes to show a message box in case PyQt fails or window is hidden
+        if sys.platform == 'win32':
+            import ctypes
+            ctypes.windll.user32.MessageBoxW(0, f"Critical Error:\n{str(e)}", "Genshin Widget Error", 0x10)
+        sys.exit(1)
