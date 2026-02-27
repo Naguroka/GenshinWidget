@@ -1,0 +1,5 @@
+test_settings.ini
+test_runner.py
+debug.log
+__pycache__/
+*.pyc
