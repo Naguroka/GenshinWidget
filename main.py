@@ -5,12 +5,7 @@ import logging
 import signal
 import atexit
 import ctypes
-from PyQt5.QtWidgets import QApplication, QWidget, QVBoxLayout, QLabel, QMessageBox, QHBoxLayout, QFrame
-from PyQt5.QtCore import Qt, QPoint, pyqtSignal, QTimer, QUrl
-from PyQt5.QtGui import QFontDatabase, QFont, QPixmap, QPainter, QBrush, QDesktopServices, QMouseEvent
 import configparser
-import genshin
-from qasync import QEventLoop, asyncSlot
 
 # Resolve paths relative to this file to be cross-platform friendly
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -34,6 +29,25 @@ logging.basicConfig(
         logging.StreamHandler()
     ]
 )
+
+# Import third-party dependencies with a helpful error message if missing
+try:
+    from PyQt5.QtWidgets import QApplication, QWidget, QVBoxLayout, QLabel, QMessageBox, QHBoxLayout, QFrame
+    from PyQt5.QtCore import Qt, QPoint, pyqtSignal, QTimer, QUrl
+    from PyQt5.QtGui import QFontDatabase, QFont, QPixmap, QPainter, QBrush, QDesktopServices, QMouseEvent
+    import genshin
+    from qasync import QEventLoop, asyncSlot
+except ImportError as e:
+    logging.critical("Missing required dependency: %s", e)
+    logging.critical("Please run: pip install -r requirements.txt")
+    if sys.platform == 'win32':
+        ctypes.windll.user32.MessageBoxW(
+            0,
+            f"Missing required dependency:\n{e}\n\nPlease run:\npip install -r requirements.txt",
+            "Genshin Widget - Missing Dependency",
+            0x10
+        )
+    sys.exit(1)
 
 def apply_process_metadata(process_name="Genshin Widget"):
     if sys.platform.startswith("win") and hasattr(ctypes, 'windll'):
@@ -106,8 +120,11 @@ class GenshinApp(QWidget):
         logging.debug(f"window_config: {list(window_config.items())}")
 
         # Check for auth details
-        if not auth_config.get('ltuid_v2') or not auth_config.get('ltoken_v2') or not auth_config.get('cookie_token_v2') or not auth_config.get('account_mid_v2'):
-            self.show_warning("Authentication details are missing in settings.ini")
+        placeholder = 'get from hoyolab cookies'
+        required_keys = ['ltuid_v2', 'ltoken_v2', 'cookie_token_v2', 'account_mid_v2']
+        missing = [k for k in required_keys if not auth_config.get(k) or auth_config.get(k, '').strip().lower() == placeholder]
+        if missing:
+            self.show_warning(f"Authentication details are missing or not configured in settings.ini: {', '.join(missing)}")
             sys.exit()
 
         # Convert 1/0 to True/False
@@ -309,7 +326,8 @@ class GenshinApp(QWidget):
                     realm_currency_info = f"Realm Currency: {notes.current_realm_currency}/2400"
                     self.update_ui_signal.emit(resin_info, checkin_info, realm_currency_info)
                 except genshin.errors.GenshinException as e:
-                    logging.error(f"Error fetching notes: {str(e)} - Response: {e.response}")
+                    response_info = getattr(e, 'response', None)
+                    logging.error(f"Error fetching notes: {str(e)} - Response: {response_info}")
                     self.update_ui_signal.emit(f"Error fetching notes: {str(e)}", "", "")
 
         except Exception as e:
@@ -406,6 +424,8 @@ class GenshinApp(QWidget):
             self.oldPos = event.globalPos()
 
     def mouseMoveEvent(self, event):
+        if not hasattr(self, 'oldPos'):
+            return
         delta = QPoint(event.globalPos() - self.oldPos)
         self.move(self.x() + delta.x(), self.y() + delta.y())
         self.oldPos = event.globalPos()
