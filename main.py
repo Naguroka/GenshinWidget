@@ -12,17 +12,6 @@ import configparser
 import genshin
 from qasync import QEventLoop, asyncSlot
 
-# Setup logging
-log_file = resource_path('debug.log')
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.FileHandler(log_file, encoding='utf-8'),
-        logging.StreamHandler()
-    ]
-)
-
 # Resolve paths relative to this file to be cross-platform friendly
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
@@ -34,6 +23,17 @@ def resource_path(*parts: str) -> str:
     if parts and os.path.isabs(parts[0]):
         return os.path.join(*parts)
     return os.path.join(BASE_DIR, *parts)
+
+# Setup logging
+log_file = resource_path('debug.log')
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.FileHandler(log_file, encoding='utf-8'),
+        logging.StreamHandler()
+    ]
+)
 
 def apply_process_metadata(process_name="Genshin Widget"):
     if sys.platform.startswith("win") and hasattr(ctypes, 'windll'):
