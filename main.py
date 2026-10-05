@@ -32,7 +32,19 @@ logging.basicConfig(
 
 # Import third-party dependencies with a helpful error message if missing
 try:
-    from PyQt5.QtWidgets import QApplication, QWidget, QVBoxLayout, QLabel, QMessageBox, QHBoxLayout, QFrame
+    # from PyQt5.QtWidgets import QApplication, QWidget, QVBoxLayout, QLabel, QMessageBox, QHBoxLayout, QFrame
+    # add
+    from PyQt5.QtWidgets import (
+        QApplication,
+        QWidget,
+        QVBoxLayout,
+        QLabel,
+        QMessageBox,
+        QHBoxLayout,
+        QFrame,
+        QPushButton,
+    )
+    # end add
     from PyQt5.QtCore import Qt, QPoint, pyqtSignal, QTimer, QUrl
     from PyQt5.QtGui import QFontDatabase, QFont, QPixmap, QPainter, QBrush, QDesktopServices, QMouseEvent
     import genshin
@@ -171,6 +183,29 @@ class GenshinApp(QWidget):
 
         # Setup content layout
         self.content_layout = QVBoxLayout(self.background_frame)
+
+        # add: close button
+        self.close_button = QPushButton("×", self)
+        self.close_button.setFixedSize(28, 28)
+        self.close_button.setCursor(Qt.PointingHandCursor)
+        self.close_button.clicked.connect(self.close)
+        self.close_button.hide()
+
+        self.close_button.setStyleSheet("""
+            QPushButton {
+                background-color: rgba(0, 0, 0, 100);
+                color: white;
+                border: none;
+                border-radius: 14px;
+                font-size: 20px;
+                font-weight: bold;
+            }
+
+            QPushButton:hover {
+                background-color: rgba(220, 50, 50, 200);
+            }
+        """)
+        # end add
 
         # Apply margins
         self.margins = display_config.getint('margins', 10)
@@ -459,6 +494,29 @@ class GenshinApp(QWidget):
 
         event.accept()
         super().closeEvent(event)
+
+    # add
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+
+        if hasattr(self, "close_button"):
+            margin = 5
+
+            self.close_button.move(
+                self.width() - self.close_button.width() - margin,
+                margin
+            )
+
+
+    def enterEvent(self, event):
+        super().enterEvent(event)
+        self.close_button.show()
+
+
+    def leaveEvent(self, event):
+        super().leaveEvent(event)
+        self.close_button.hide()
+    # end add
 
 if __name__ == '__main__':
     apply_process_metadata("Genshin Widget")
